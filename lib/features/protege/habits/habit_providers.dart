@@ -70,3 +70,51 @@ final protegeSummaryProvider = FutureProvider.autoDispose<Map<String, dynamic>?>
   
   return await SupabaseService.getProtegeSummary(user.id);
 });
+
+/// Provider for today's habit logs (to check which habits are already logged)
+final todayHabitLogsProvider = FutureProvider.autoDispose<Set<String>>((ref) async {
+  final user = ref.watch(currentUserProvider);
+  if (user == null) return {};
+  
+  final logs = await SupabaseService.getHabitLogs(
+    protegeId: user.id,
+    limit: 50,
+  );
+  
+  final today = DateTime.now().toIso8601String().split('T')[0];
+  final loggedHabitIds = <String>{};
+  
+  for (final log in logs) {
+    if (log['date'] == today) {
+      loggedHabitIds.add(log['habit_id'] as String);
+    }
+  }
+  
+  return loggedHabitIds;
+});
+
+/// Provider for task completion statistics
+final taskStatsProvider = FutureProvider.autoDispose<Map<String, int>>((ref) async {
+  final user = ref.watch(currentUserProvider);
+  if (user == null) return {'total': 0, 'completed': 0, 'pending': 0};
+  
+  final tasks = await SupabaseService.getAssignedTasks(user.id);
+  
+  int completed = 0;
+  int pending = 0;
+  
+  for (final task in tasks) {
+    final status = task['status'] ?? 'assigned';
+    if (status == 'verified') {
+      completed++;
+    } else {
+      pending++;
+    }
+  }
+  
+  return {
+    'total': tasks.length,
+    'completed': completed,
+    'pending': pending,
+  };
+});

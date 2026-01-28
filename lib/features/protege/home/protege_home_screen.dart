@@ -169,8 +169,10 @@ class _ProtegeHomeScreenState extends ConsumerState<ProtegeHomeScreen> {
               habitsAsync.when(
                 data: (habits) {
                   if (habits.isEmpty) return _buildEmptyHabits();
+                  final todayLogsAsync = ref.watch(todayHabitLogsProvider);
+                  final loggedHabits = todayLogsAsync.valueOrNull ?? <String>{};
                   return Column(
-                    children: habits.take(3).map((a) => _buildHabitCard(a)).toList(),
+                    children: habits.take(3).map((a) => _buildHabitCard(a, loggedHabits)).toList(),
                   );
                 },
                 loading: () => const Center(child: CircularProgressIndicator()),
@@ -279,35 +281,40 @@ class _ProtegeHomeScreenState extends ConsumerState<ProtegeHomeScreen> {
             ),
           ],
         ),
-        // Dynamic streak badge
-        Container(
-          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-          decoration: BoxDecoration(
-            gradient: const LinearGradient(
-              colors: [AppColors.secondary, AppColors.secondaryDark],
-            ),
-            borderRadius: BorderRadius.circular(20),
-            boxShadow: [
-              BoxShadow(
-                color: AppColors.secondary.withValues(alpha: 0.3),
-                blurRadius: 8,
-                offset: const Offset(0, 4),
+        // Dynamic streak badge - tappable
+        GestureDetector(
+          onTap: () => _showStreakDetails(),
+          child: Container(
+            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+            decoration: BoxDecoration(
+              gradient: const LinearGradient(
+                colors: [AppColors.secondary, AppColors.secondaryDark],
               ),
-            ],
-          ),
-          child: Row(
-            children: [
-              const Icon(Icons.local_fire_department, color: Colors.white, size: 20),
-              const SizedBox(width: 4),
-              Text(
-                '$streak',
-                style: const TextStyle(
-                  color: Colors.white,
-                  fontWeight: FontWeight.bold,
-                  fontSize: 18,
+              borderRadius: BorderRadius.circular(20),
+              boxShadow: [
+                BoxShadow(
+                  color: AppColors.secondary.withValues(alpha: 0.3),
+                  blurRadius: 8,
+                  offset: const Offset(0, 4),
                 ),
-              ),
-            ],
+              ],
+            ),
+            child: Row(
+              children: [
+                const Icon(Icons.local_fire_department, color: Colors.white, size: 20),
+                const SizedBox(width: 4),
+                Text(
+                  '$streak',
+                  style: const TextStyle(
+                    color: Colors.white,
+                    fontWeight: FontWeight.bold,
+                    fontSize: 18,
+                  ),
+                ),
+                const SizedBox(width: 4),
+                const Icon(Icons.chevron_right, color: Colors.white70, size: 16),
+              ],
+            ),
           ),
         ),
       ],
@@ -446,22 +453,24 @@ class _ProtegeHomeScreenState extends ConsumerState<ProtegeHomeScreen> {
     );
   }
 
-  Widget _buildHabitCard(Map<String, dynamic> assignment) {
+  Widget _buildHabitCard(Map<String, dynamic> assignment, Set<String> loggedHabits) {
     final habit = assignment['habits'];
     final habitName = habit?['name'] ?? 'Practice';
     final habitDescription = habit?['description'] ?? '';
+    final habitId = assignment['habit_id'] ?? habit?['id'];
+    final isLoggedToday = habitId != null && loggedHabits.contains(habitId);
 
     return Container(
       margin: const EdgeInsets.only(bottom: 12),
       decoration: BoxDecoration(
         color: AppColors.surface,
         borderRadius: BorderRadius.circular(16),
-        border: Border.all(color: AppColors.divider),
+        border: Border.all(color: isLoggedToday ? AppColors.success : AppColors.divider),
       ),
       child: Material(
         color: Colors.transparent,
         child: InkWell(
-          onTap: () => _showHabitLogSheet(assignment),
+          onTap: isLoggedToday ? null : () => _showHabitLogSheet(assignment),
           borderRadius: BorderRadius.circular(16),
           child: Padding(
             padding: const EdgeInsets.all(16),
@@ -471,12 +480,12 @@ class _ProtegeHomeScreenState extends ConsumerState<ProtegeHomeScreen> {
                   width: 48,
                   height: 48,
                   decoration: BoxDecoration(
-                    color: AppColors.primary.withValues(alpha: 0.1),
+                    color: (isLoggedToday ? AppColors.success : AppColors.primary).withValues(alpha: 0.1),
                     borderRadius: BorderRadius.circular(12),
                   ),
-                  child: const Icon(
-                    Icons.self_improvement,
-                    color: AppColors.primary,
+                  child: Icon(
+                    isLoggedToday ? Icons.check_circle : Icons.self_improvement,
+                    color: isLoggedToday ? AppColors.success : AppColors.primary,
                     size: 24,
                   ),
                 ),
@@ -506,12 +515,12 @@ class _ProtegeHomeScreenState extends ConsumerState<ProtegeHomeScreen> {
                 Container(
                   padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
                   decoration: BoxDecoration(
-                    color: AppColors.primary,
+                    color: isLoggedToday ? AppColors.success : AppColors.primary,
                     borderRadius: BorderRadius.circular(8),
                   ),
-                  child: const Text(
-                    'Log',
-                    style: TextStyle(
+                  child: Text(
+                    isLoggedToday ? 'Logged ✓' : 'Log',
+                    style: const TextStyle(
                       color: Colors.white,
                       fontWeight: FontWeight.w600,
                     ),
@@ -647,7 +656,102 @@ class _ProtegeHomeScreenState extends ConsumerState<ProtegeHomeScreen> {
       ref.invalidate(protegeHabitsProvider);
       ref.invalidate(currentStreakProvider);
       ref.invalidate(habitAnalyticsProvider);
+      ref.invalidate(todayHabitLogsProvider);
     });
+  }
+
+  void _showStreakDetails() {
+    final streaksAsync = ref.read(protegeStreaksProvider);
+    
+    showModalBottomSheet(
+      context: context,
+      backgroundColor: Colors.transparent,
+      builder: (context) => Container(
+        decoration: const BoxDecoration(
+          color: AppColors.surface,
+          borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
+        ),
+        padding: const EdgeInsets.all(20),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Container(
+              width: 40,
+              height: 4,
+              decoration: BoxDecoration(
+                color: AppColors.divider,
+                borderRadius: BorderRadius.circular(2),
+              ),
+            ),
+            const SizedBox(height: 20),
+            Row(
+              children: [
+                const Icon(Icons.local_fire_department, color: AppColors.secondary, size: 28),
+                const SizedBox(width: 12),
+                Text(
+                  'Your Streaks',
+                  style: Theme.of(context).textTheme.headlineSmall?.copyWith(
+                    fontWeight: FontWeight.bold,
+                  ),
+                ),
+              ],
+            ),
+            const SizedBox(height: 20),
+            streaksAsync.when(
+              data: (streaks) {
+                if (streaks.isEmpty) {
+                  return const Padding(
+                    padding: EdgeInsets.all(20),
+                    child: Text('Start logging habits to build streaks!'),
+                  );
+                }
+                return Column(
+                  children: streaks.map((s) {
+                    final habitName = s['habits']?['name'] ?? 'Habit';
+                    final current = s['current_streak'] ?? 0;
+                    final longest = s['longest_streak'] ?? 0;
+                    return Container(
+                      margin: const EdgeInsets.only(bottom: 12),
+                      padding: const EdgeInsets.all(16),
+                      decoration: BoxDecoration(
+                        color: AppColors.surfaceVariant,
+                        borderRadius: BorderRadius.circular(12),
+                      ),
+                      child: Row(
+                        children: [
+                          const Icon(Icons.self_improvement, color: AppColors.primary),
+                          const SizedBox(width: 12),
+                          Expanded(
+                            child: Text(habitName, style: const TextStyle(fontWeight: FontWeight.w600)),
+                          ),
+                          Column(
+                            crossAxisAlignment: CrossAxisAlignment.end,
+                            children: [
+                              Row(
+                                mainAxisSize: MainAxisSize.min,
+                                children: [
+                                  const Icon(Icons.local_fire_department, color: AppColors.secondary, size: 16),
+                                  const SizedBox(width: 4),
+                                  Text('$current days', style: const TextStyle(fontWeight: FontWeight.bold)),
+                                ],
+                              ),
+                              Text('Best: $longest', style: Theme.of(context).textTheme.bodySmall),
+                            ],
+                          ),
+                        ],
+                      ),
+                    );
+                  }).toList(),
+                );
+              },
+              loading: () => const CircularProgressIndicator(),
+              error: (e, _) => Text('Error: $e'),
+            ),
+            const SizedBox(height: 20),
+          ],
+        ),
+      ),
+    );
   }
 
   void _showTaskDetails(Map<String, dynamic> assignment) {
@@ -866,10 +970,14 @@ class _ProtegeHomeScreenState extends ConsumerState<ProtegeHomeScreen> {
 
   Widget _buildHabitsTab() {
     final habitsAsync = ref.watch(protegeHabitsProvider);
+    final todayLogsAsync = ref.watch(todayHabitLogsProvider);
 
     return SafeArea(
       child: RefreshIndicator(
-        onRefresh: () async => ref.invalidate(protegeHabitsProvider),
+        onRefresh: () async {
+          ref.invalidate(protegeHabitsProvider);
+          ref.invalidate(todayHabitLogsProvider);
+        },
         child: Padding(
           padding: const EdgeInsets.all(20),
           child: Column(
@@ -893,9 +1001,10 @@ class _ProtegeHomeScreenState extends ConsumerState<ProtegeHomeScreen> {
                 child: habitsAsync.when(
                   data: (habits) {
                     if (habits.isEmpty) return Center(child: _buildEmptyHabits());
+                    final loggedHabits = todayLogsAsync.valueOrNull ?? <String>{};
                     return ListView.builder(
                       itemCount: habits.length,
-                      itemBuilder: (context, index) => _buildHabitCard(habits[index]),
+                      itemBuilder: (context, index) => _buildHabitCard(habits[index], loggedHabits),
                     );
                   },
                   loading: () => const Center(child: CircularProgressIndicator()),
@@ -957,12 +1066,14 @@ class _ProtegeHomeScreenState extends ConsumerState<ProtegeHomeScreen> {
   Widget _buildProgressTab() {
     final analyticsAsync = ref.watch(habitAnalyticsProvider);
     final weeklyDataAsync = ref.watch(weeklyChartDataProvider);
+    final taskStatsAsync = ref.watch(taskStatsProvider);
 
     return SafeArea(
       child: RefreshIndicator(
         onRefresh: () async {
           ref.invalidate(habitAnalyticsProvider);
           ref.invalidate(weeklyChartDataProvider);
+          ref.invalidate(taskStatsProvider);
         },
         child: SingleChildScrollView(
           physics: const AlwaysScrollableScrollPhysics(),
@@ -1047,6 +1158,66 @@ class _ProtegeHomeScreenState extends ConsumerState<ProtegeHomeScreen> {
               
               const SizedBox(height: 24),
               
+              // Task completion stats
+              Text(
+                'Task Progress',
+                style: Theme.of(context).textTheme.titleLarge?.copyWith(
+                  fontWeight: FontWeight.bold,
+                ),
+              ),
+              const SizedBox(height: 16),
+              taskStatsAsync.when(
+                data: (stats) {
+                  final total = stats['total'] ?? 0;
+                  final completed = stats['completed'] ?? 0;
+                  final pending = stats['pending'] ?? 0;
+                  final completionRate = total > 0 ? (completed / total * 100).round() : 0;
+                  
+                  return Container(
+                    padding: const EdgeInsets.all(16),
+                    decoration: BoxDecoration(
+                      color: AppColors.surfaceVariant,
+                      borderRadius: BorderRadius.circular(16),
+                    ),
+                    child: Column(
+                      children: [
+                        Row(
+                          mainAxisAlignment: MainAxisAlignment.spaceAround,
+                          children: [
+                            _buildTaskStat('Total', '$total', AppColors.textPrimary),
+                            _buildTaskStat('Completed', '$completed', AppColors.success),
+                            _buildTaskStat('Pending', '$pending', AppColors.warning),
+                          ],
+                        ),
+                        const SizedBox(height: 16),
+                        // Progress bar
+                        ClipRRect(
+                          borderRadius: BorderRadius.circular(8),
+                          child: LinearProgressIndicator(
+                            value: total > 0 ? completed / total : 0,
+                            minHeight: 12,
+                            backgroundColor: AppColors.divider,
+                            valueColor: const AlwaysStoppedAnimation<Color>(AppColors.success),
+                          ),
+                        ),
+                        const SizedBox(height: 8),
+                        Text(
+                          '$completionRate% Complete',
+                          style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                            fontWeight: FontWeight.bold,
+                            color: AppColors.success,
+                          ),
+                        ),
+                      ],
+                    ),
+                  );
+                },
+                loading: () => const Center(child: CircularProgressIndicator()),
+                error: (e, _) => _buildErrorCard('Error: $e'),
+              ),
+              
+              const SizedBox(height: 24),
+              
               // Weekly chart
               Text(
                 'This Week',
@@ -1065,6 +1236,25 @@ class _ProtegeHomeScreenState extends ConsumerState<ProtegeHomeScreen> {
           ),
         ),
       ),
+    );
+  }
+
+  Widget _buildTaskStat(String label, String value, Color color) {
+    return Column(
+      children: [
+        Text(
+          value,
+          style: Theme.of(context).textTheme.headlineSmall?.copyWith(
+            fontWeight: FontWeight.bold,
+            color: color,
+          ),
+        ),
+        const SizedBox(height: 4),
+        Text(
+          label,
+          style: Theme.of(context).textTheme.bodySmall,
+        ),
+      ],
     );
   }
 
@@ -1217,22 +1407,22 @@ class _ProtegeHomeScreenState extends ConsumerState<ProtegeHomeScreen> {
             _buildMenuItem(
               icon: Icons.person_outline,
               label: 'Edit Profile',
-              onTap: () {},
+              onTap: () => _showEditProfileDialog(),
             ),
             _buildMenuItem(
               icon: Icons.notifications_outlined,
               label: 'Notifications',
-              onTap: () {},
+              onTap: () => _showNotificationsSettings(),
             ),
             _buildMenuItem(
               icon: Icons.help_outline,
               label: 'Help & Support',
-              onTap: () {},
+              onTap: () => _showHelpSupport(),
             ),
             _buildMenuItem(
               icon: Icons.info_outline,
               label: 'About LAMP',
-              onTap: () {},
+              onTap: () => _showAboutDialog(),
             ),
             
             const SizedBox(height: 16),
@@ -1272,6 +1462,309 @@ class _ProtegeHomeScreenState extends ConsumerState<ProtegeHomeScreen> {
         trailing: const Icon(Icons.chevron_right, color: AppColors.textSecondary),
         onTap: onTap,
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+      ),
+    );
+  }
+
+  void _showEditProfileDialog() {
+    final user = ref.read(currentUserProvider);
+    final nameController = TextEditingController(text: user?.name ?? '');
+    
+    showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Row(
+          children: [
+            Icon(Icons.person_outline, color: AppColors.primary),
+            SizedBox(width: 8),
+            Text('Edit Profile'),
+          ],
+        ),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            TextField(
+              controller: nameController,
+              decoration: const InputDecoration(
+                labelText: 'Name',
+                border: OutlineInputBorder(),
+              ),
+            ),
+            const SizedBox(height: 16),
+            Container(
+              padding: const EdgeInsets.all(12),
+              decoration: BoxDecoration(
+                color: AppColors.surfaceVariant,
+                borderRadius: BorderRadius.circular(8),
+              ),
+              child: Row(
+                children: [
+                  const Icon(Icons.email_outlined, size: 20, color: AppColors.textSecondary),
+                  const SizedBox(width: 12),
+                  Expanded(
+                    child: Text(
+                      user?.email ?? 'No email',
+                      style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                        color: AppColors.textSecondary,
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ],
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context),
+            child: const Text('Cancel'),
+          ),
+          ElevatedButton(
+            onPressed: () async {
+              try {
+                await ref.read(authProvider.notifier).updateProfile(
+                  name: nameController.text.trim(),
+                );
+                if (context.mounted) Navigator.pop(context);
+                if (mounted) {
+                  ScaffoldMessenger.of(this.context).showSnackBar(
+                    const SnackBar(
+                      content: Text('Profile updated successfully!'),
+                      backgroundColor: AppColors.success,
+                    ),
+                  );
+                }
+              } catch (e) {
+                if (mounted) {
+                  ScaffoldMessenger.of(this.context).showSnackBar(
+                    SnackBar(
+                      content: Text('Error: $e'),
+                      backgroundColor: AppColors.error,
+                    ),
+                  );
+                }
+              }
+            },
+            child: const Text('Save'),
+          ),
+        ],
+      ),
+    );
+  }
+
+  void _showNotificationsSettings() {
+    showModalBottomSheet(
+      context: context,
+      backgroundColor: Colors.transparent,
+      builder: (context) => Container(
+        decoration: const BoxDecoration(
+          color: AppColors.surface,
+          borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
+        ),
+        padding: const EdgeInsets.all(20),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Center(
+              child: Container(
+                width: 40,
+                height: 4,
+                decoration: BoxDecoration(
+                  color: AppColors.divider,
+                  borderRadius: BorderRadius.circular(2),
+                ),
+              ),
+            ),
+            const SizedBox(height: 20),
+            const Row(
+              children: [
+                Icon(Icons.notifications_outlined, color: AppColors.primary, size: 28),
+                SizedBox(width: 12),
+                Text(
+                  'Notifications',
+                  style: TextStyle(
+                    fontSize: 20,
+                    fontWeight: FontWeight.bold,
+                  ),
+                ),
+              ],
+            ),
+            const SizedBox(height: 20),
+            SwitchListTile(
+              title: const Text('Daily Reminders'),
+              subtitle: const Text('Get reminded to practice'),
+              value: true,
+              onChanged: (value) {
+                // TODO: Implement notification toggle
+              },
+            ),
+            SwitchListTile(
+              title: const Text('Task Notifications'),
+              subtitle: const Text('When tasks are assigned'),
+              value: true,
+              onChanged: (value) {
+                // TODO: Implement notification toggle
+              },
+            ),
+            SwitchListTile(
+              title: const Text('Streak Alerts'),
+              subtitle: const Text('Don\'t break your streak!'),
+              value: true,
+              onChanged: (value) {
+                // TODO: Implement notification toggle
+              },
+            ),
+            const SizedBox(height: 20),
+          ],
+        ),
+      ),
+    );
+  }
+
+  void _showHelpSupport() {
+    showModalBottomSheet(
+      context: context,
+      backgroundColor: Colors.transparent,
+      builder: (context) => Container(
+        decoration: const BoxDecoration(
+          color: AppColors.surface,
+          borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
+        ),
+        padding: const EdgeInsets.all(20),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Center(
+              child: Container(
+                width: 40,
+                height: 4,
+                decoration: BoxDecoration(
+                  color: AppColors.divider,
+                  borderRadius: BorderRadius.circular(2),
+                ),
+              ),
+            ),
+            const SizedBox(height: 20),
+            const Row(
+              children: [
+                Icon(Icons.help_outline, color: AppColors.primary, size: 28),
+                SizedBox(width: 12),
+                Text(
+                  'Help & Support',
+                  style: TextStyle(
+                    fontSize: 20,
+                    fontWeight: FontWeight.bold,
+                  ),
+                ),
+              ],
+            ),
+            const SizedBox(height: 20),
+            ListTile(
+              leading: const Icon(Icons.email_outlined, color: AppColors.primary),
+              title: const Text('Contact Support'),
+              subtitle: const Text('support@heartfulness.org'),
+              onTap: () {
+                // Could open email
+                Navigator.pop(context);
+              },
+            ),
+            ListTile(
+              leading: const Icon(Icons.book_outlined, color: AppColors.primary),
+              title: const Text('User Guide'),
+              subtitle: const Text('Learn how to use LAMP'),
+              onTap: () {
+                Navigator.pop(context);
+              },
+            ),
+            ListTile(
+              leading: const Icon(Icons.question_answer_outlined, color: AppColors.primary),
+              title: const Text('FAQs'),
+              subtitle: const Text('Frequently asked questions'),
+              onTap: () {
+                Navigator.pop(context);
+              },
+            ),
+            const SizedBox(height: 20),
+          ],
+        ),
+      ),
+    );
+  }
+
+  void _showAboutDialog() {
+    showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Row(
+          children: [
+            Icon(Icons.self_improvement, color: AppColors.primary),
+            SizedBox(width: 8),
+            Text('About LAMP'),
+          ],
+        ),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Container(
+              padding: const EdgeInsets.all(16),
+              decoration: BoxDecoration(
+                gradient: const LinearGradient(
+                  colors: [AppColors.primary, AppColors.primaryDark],
+                ),
+                borderRadius: BorderRadius.circular(12),
+              ),
+              child: const Row(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  Icon(Icons.self_improvement, color: Colors.white, size: 32),
+                  SizedBox(width: 12),
+                  Text(
+                    'LAMP',
+                    style: TextStyle(
+                      color: Colors.white,
+                      fontSize: 24,
+                      fontWeight: FontWeight.bold,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+            const SizedBox(height: 16),
+            const Text(
+              'LAMP - Loving Awareness Meditation Practice',
+              style: TextStyle(fontWeight: FontWeight.w600),
+            ),
+            const SizedBox(height: 8),
+            Text(
+              'A spiritual practice companion app by Heartfulness.',
+              style: Theme.of(context).textTheme.bodyMedium,
+            ),
+            const SizedBox(height: 16),
+            const Divider(),
+            const SizedBox(height: 8),
+            Text(
+              'Version 1.0.0',
+              style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                color: AppColors.textSecondary,
+              ),
+            ),
+            Text(
+              '© 2024 Heartfulness Institute',
+              style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                color: AppColors.textSecondary,
+              ),
+            ),
+          ],
+        ),
+        actions: [
+          ElevatedButton(
+            onPressed: () => Navigator.pop(context),
+            child: const Text('Close'),
+          ),
+        ],
       ),
     );
   }
