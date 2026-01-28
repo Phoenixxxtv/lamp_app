@@ -538,7 +538,7 @@ class _ProtegeHomeScreenState extends ConsumerState<ProtegeHomeScreen> {
         statusColor = AppColors.success;
         statusLabel = 'Done';
         break;
-      case 'pending_verification':
+      case 'ToVerify':
         statusColor = AppColors.warning;
         statusLabel = 'Pending';
         break;
@@ -758,7 +758,7 @@ class _ProtegeHomeScreenState extends ConsumerState<ProtegeHomeScreen> {
                         ],
                       ),
                     )
-                  else if (status == 'pending_verification')
+                  else if (status == 'ToVerify')
                     Container(
                       padding: const EdgeInsets.all(16),
                       decoration: BoxDecoration(
@@ -785,7 +785,7 @@ class _ProtegeHomeScreenState extends ConsumerState<ProtegeHomeScreen> {
                           try {
                             await SupabaseService.updateTaskStatus(
                               assignmentId: assignmentId,
-                              status: 'pending_verification',
+                              status: 'ToVerify',
                             );
                             ref.invalidate(protegeTasksProvider);
                             if (context.mounted) Navigator.pop(context);
