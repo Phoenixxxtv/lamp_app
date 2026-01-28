@@ -5,6 +5,7 @@ import '../../../services/supabase_service.dart';
 import '../../auth/data/auth_provider.dart';
 import '../habits/habit_providers.dart';
 import '../habits/habit_log_screen.dart';
+import '../../../core/utils/date_formatter.dart';
 
 class ProtegeHomeScreen extends ConsumerStatefulWidget {
   const ProtegeHomeScreen({super.key});
@@ -632,13 +633,7 @@ class _ProtegeHomeScreenState extends ConsumerState<ProtegeHomeScreen> {
   }
 
   String _formatDeadline(String? deadline) {
-    if (deadline == null) return '';
-    try {
-      final date = DateTime.parse(deadline);
-      return '${date.day}/${date.month}/${date.year}';
-    } catch (e) {
-      return deadline;
-    }
+    return DateFormatter.tryFormat(deadline) ?? '';
   }
 
   void _showHabitLogSheet(Map<String, dynamic> assignment) {
