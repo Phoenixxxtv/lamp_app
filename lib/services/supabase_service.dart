@@ -365,7 +365,7 @@ class SupabaseService {
     return List<Map<String, dynamic>>.from(response);
   }
 
-  /// Update task status (assigned -> ToVerify -> verified)
+  /// Update task status (assigned -> pending_verification -> verified)
   static Future<void> updateTaskStatus({
     required String assignmentId,
     required String status,
@@ -374,7 +374,7 @@ class SupabaseService {
       'status': status,
     };
 
-    if (status == 'ToVerify') {
+    if (status == 'pending_verification') {
       updates['completed_at'] = DateTime.now().toIso8601String();
     } else if (status == 'verified') {
       updates['reviewed_at'] = DateTime.now().toIso8601String();
