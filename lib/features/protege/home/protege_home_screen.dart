@@ -1522,9 +1522,9 @@ class _ProtegeHomeScreenState extends ConsumerState<ProtegeHomeScreen> {
           ElevatedButton(
             onPressed: () async {
               try {
-                await ref.read(authProvider.notifier).updateProfile(
-                  name: nameController.text.trim(),
-                );
+                await ref.read(authProvider.notifier).updateProfile({
+                  'name': nameController.text.trim(),
+                });
                 if (context.mounted) Navigator.pop(context);
                 if (mounted) {
                   ScaffoldMessenger.of(this.context).showSnackBar(
