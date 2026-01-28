@@ -457,7 +457,9 @@ class _ProtegeHomeScreenState extends ConsumerState<ProtegeHomeScreen> {
     final habit = assignment['habits'];
     final habitName = habit?['name'] ?? 'Practice';
     final habitDescription = habit?['description'] ?? '';
-    final habitId = assignment['habit_id'] ?? habit?['id'];
+    // Ensure habitId is a string for proper comparison
+    final rawHabitId = assignment['habit_id'] ?? habit?['id'];
+    final habitId = rawHabitId?.toString();
     final isLoggedToday = habitId != null && loggedHabits.contains(habitId);
 
     return Container(
@@ -546,11 +548,11 @@ class _ProtegeHomeScreenState extends ConsumerState<ProtegeHomeScreen> {
     switch (status) {
       case 'verified':
         statusColor = AppColors.success;
-        statusLabel = 'Done';
+        statusLabel = 'Completed';
         break;
       case 'ToVerify':
         statusColor = AppColors.warning;
-        statusLabel = 'Pending';
+        statusLabel = 'Pending Review';
         break;
       default:
         statusColor = AppColors.primary;
@@ -661,94 +663,102 @@ class _ProtegeHomeScreenState extends ConsumerState<ProtegeHomeScreen> {
   }
 
   void _showStreakDetails() {
-    final streaksAsync = ref.read(protegeStreaksProvider);
-    
     showModalBottomSheet(
       context: context,
       backgroundColor: Colors.transparent,
-      builder: (context) => Container(
+      builder: (modalContext) => Container(
         decoration: const BoxDecoration(
           color: AppColors.surface,
           borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
         ),
         padding: const EdgeInsets.all(20),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Container(
-              width: 40,
-              height: 4,
-              decoration: BoxDecoration(
-                color: AppColors.divider,
-                borderRadius: BorderRadius.circular(2),
-              ),
-            ),
-            const SizedBox(height: 20),
-            Row(
+        child: Consumer(
+          builder: (context, ref, child) {
+            final streaksAsync = ref.watch(protegeStreaksProvider);
+            return Column(
+              mainAxisSize: MainAxisSize.min,
               children: [
-                const Icon(Icons.local_fire_department, color: AppColors.secondary, size: 28),
-                const SizedBox(width: 12),
-                Text(
-                  'Your Streaks',
-                  style: Theme.of(context).textTheme.headlineSmall?.copyWith(
-                    fontWeight: FontWeight.bold,
+                Container(
+                  width: 40,
+                  height: 4,
+                  decoration: BoxDecoration(
+                    color: AppColors.divider,
+                    borderRadius: BorderRadius.circular(2),
                   ),
                 ),
-              ],
-            ),
-            const SizedBox(height: 20),
-            streaksAsync.when(
-              data: (streaks) {
-                if (streaks.isEmpty) {
-                  return const Padding(
-                    padding: EdgeInsets.all(20),
-                    child: Text('Start logging habits to build streaks!'),
-                  );
-                }
-                return Column(
-                  children: streaks.map((s) {
-                    final habitName = s['habits']?['name'] ?? 'Habit';
-                    final current = s['current_streak'] ?? 0;
-                    final longest = s['longest_streak'] ?? 0;
-                    return Container(
-                      margin: const EdgeInsets.only(bottom: 12),
-                      padding: const EdgeInsets.all(16),
-                      decoration: BoxDecoration(
-                        color: AppColors.surfaceVariant,
-                        borderRadius: BorderRadius.circular(12),
+                const SizedBox(height: 20),
+                Row(
+                  children: [
+                    const Icon(Icons.local_fire_department, color: AppColors.secondary, size: 28),
+                    const SizedBox(width: 12),
+                    Text(
+                      'My Streaks',
+                      style: Theme.of(context).textTheme.headlineSmall?.copyWith(
+                        fontWeight: FontWeight.bold,
                       ),
-                      child: Row(
-                        children: [
-                          const Icon(Icons.self_improvement, color: AppColors.primary),
-                          const SizedBox(width: 12),
-                          Expanded(
-                            child: Text(habitName, style: const TextStyle(fontWeight: FontWeight.w600)),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 20),
+                streaksAsync.when(
+                  data: (streaks) {
+                    if (streaks.isEmpty) {
+                      return const Padding(
+                        padding: EdgeInsets.all(20),
+                        child: Text('Start logging habits to build streaks!'),
+                      );
+                    }
+                    return Column(
+                      children: streaks.map((s) {
+                        final habitName = s['habits']?['name'] ?? 'Habit';
+                        final current = s['current_streak'] ?? 0;
+                        final longest = s['longest_streak'] ?? 0;
+                        return Container(
+                          margin: const EdgeInsets.only(bottom: 12),
+                          padding: const EdgeInsets.all(16),
+                          decoration: BoxDecoration(
+                            color: AppColors.surfaceVariant,
+                            borderRadius: BorderRadius.circular(12),
                           ),
-                          Column(
-                            crossAxisAlignment: CrossAxisAlignment.end,
+                          child: Row(
                             children: [
-                              Row(
-                                mainAxisSize: MainAxisSize.min,
+                              const Icon(Icons.self_improvement, color: AppColors.primary),
+                              const SizedBox(width: 12),
+                              Expanded(
+                                child: Text(habitName, style: const TextStyle(fontWeight: FontWeight.w600)),
+                              ),
+                              Column(
+                                crossAxisAlignment: CrossAxisAlignment.end,
                                 children: [
-                                  const Icon(Icons.local_fire_department, color: AppColors.secondary, size: 16),
-                                  const SizedBox(width: 4),
-                                  Text('$current days', style: const TextStyle(fontWeight: FontWeight.bold)),
+                                  Row(
+                                    mainAxisSize: MainAxisSize.min,
+                                    children: [
+                                      const Icon(Icons.local_fire_department, color: AppColors.secondary, size: 16),
+                                      const SizedBox(width: 4),
+                                      Text('$current days', style: const TextStyle(fontWeight: FontWeight.bold)),
+                                    ],
+                                  ),
+                                  Text('Best: $longest', style: Theme.of(context).textTheme.bodySmall),
                                 ],
                               ),
-                              Text('Best: $longest', style: Theme.of(context).textTheme.bodySmall),
                             ],
                           ),
-                        ],
-                      ),
+                        );
+                      }).toList(),
                     );
-                  }).toList(),
-                );
-              },
-              loading: () => const CircularProgressIndicator(),
-              error: (e, _) => Text('Error: $e'),
-            ),
-            const SizedBox(height: 20),
-          ],
+                  },
+                  loading: () => const Center(
+                    child: Padding(
+                      padding: EdgeInsets.all(20),
+                      child: CircularProgressIndicator(),
+                    ),
+                  ),
+                  error: (e, _) => Text('Error: $e'),
+                ),
+                const SizedBox(height: 20),
+              ],
+            );
+          },
         ),
       ),
     );
@@ -880,35 +890,43 @@ class _ProtegeHomeScreenState extends ConsumerState<ProtegeHomeScreen> {
                     )
                   else ...[
                       ElevatedButton.icon(
-                        onPressed: () async {
-                          try {
-                            await SupabaseService.updateTaskStatus(
-                              assignmentId: assignmentId,
-                              status: 'ToVerify',
-                            );
-                            ref.invalidate(protegeTasksProvider);
-                            if (context.mounted) Navigator.pop(context);
-                            if (mounted) {
-                              ScaffoldMessenger.of(this.context).showSnackBar(
-                                const SnackBar(
-                                  content: Text('Task marked as complete!'),
-                                  backgroundColor: AppColors.success,
-                                ),
+                        onPressed: status == 'verified' || status == 'ToVerify' 
+                          ? null 
+                          : () async {
+                            try {
+                              await SupabaseService.updateTaskStatus(
+                                assignmentId: assignmentId,
+                                status: 'ToVerify',
                               );
+                              ref.invalidate(protegeTasksProvider);
+                              ref.invalidate(taskStatsProvider);
+                              if (context.mounted) Navigator.pop(context);
+                              if (mounted) {
+                                ScaffoldMessenger.of(this.context).showSnackBar(
+                                  const SnackBar(
+                                    content: Text('Task marked as complete!'),
+                                    backgroundColor: AppColors.success,
+                                  ),
+                                );
+                              }
+                            } catch (e) {
+                              if (mounted) {
+                                ScaffoldMessenger.of(this.context).showSnackBar(
+                                  SnackBar(
+                                    content: Text('Error: $e'),
+                                    backgroundColor: AppColors.error,
+                                  ),
+                                );
+                              }
                             }
-                          } catch (e) {
-                            if (mounted) {
-                              ScaffoldMessenger.of(this.context).showSnackBar(
-                                SnackBar(
-                                  content: Text('Error: $e'),
-                                  backgroundColor: AppColors.error,
-                                ),
-                              );
-                            }
-                          }
-                        },
+                          },
                         icon: const Icon(Icons.check),
                         label: const Text('Mark as Complete'),
+                        style: ElevatedButton.styleFrom(
+                          backgroundColor: status == 'verified' || status == 'ToVerify' 
+                            ? AppColors.divider 
+                            : AppColors.primary,
+                        ),
                       ),
                   ],
                 ],

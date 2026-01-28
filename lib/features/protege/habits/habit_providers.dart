@@ -85,8 +85,14 @@ final todayHabitLogsProvider = FutureProvider.autoDispose<Set<String>>((ref) asy
   final loggedHabitIds = <String>{};
   
   for (final log in logs) {
-    if (log['date'] == today) {
-      loggedHabitIds.add(log['habit_id'] as String);
+    final logDate = log['date']?.toString() ?? '';
+    // Handle both full ISO and date-only formats
+    final datePart = logDate.contains('T') ? logDate.split('T')[0] : logDate;
+    if (datePart == today) {
+      final habitId = log['habit_id']?.toString();
+      if (habitId != null) {
+        loggedHabitIds.add(habitId);
+      }
     }
   }
   
